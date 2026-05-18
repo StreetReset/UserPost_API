@@ -1,4 +1,4 @@
-# Pet API
+# UserPost_API
 
 Учебный backend-проект на FastAPI с двумя сервисами:
 
