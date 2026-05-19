@@ -52,7 +52,8 @@ async def login(
         )
         
     token_data = {
-        "sub" : str(user.id)
+        "sub" : str(user.id),
+        "role" : user.role.value
     }
     
     access_token = create_access_token(token_data)
@@ -108,6 +109,7 @@ async def refresh_token(
 
     access_token = create_access_token({
         "sub": str(user_id),
+        "role": user.role.value,
     })
 
     return {

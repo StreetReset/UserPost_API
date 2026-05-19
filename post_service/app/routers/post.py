@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from post_service.app.auth.dependencies import get_current_user_id
+from post_service.app.auth.dependencies import get_current_admin, get_current_user_id, get_current_user_context
 from post_service.app.schemas.post import (
     PostCreate,
     PostUpdate,
@@ -41,6 +41,7 @@ async def create_post_route(
 
 @router.get("/", response_model=list[PostRead])
 async def get_list_posts_route(
+    _: str = Depends(get_current_admin),
     db: AsyncSession = Depends(get_async_db),
 ):
     posts = await get_list_posts(db)
@@ -120,15 +121,21 @@ async def update_post_route(
 @router.delete("/{post_id}", response_model=PostRead, status_code=status.HTTP_200_OK)
 async def delete_post_route(
     post_id: int,
-    current_user_id: int = Depends(get_current_user_id),
+    current_user: tuple[int, str] = Depends(get_current_user_context),
     db: AsyncSession = Depends(get_async_db),
 ):
+    current_user_id, role = current_user
+    
+    author_id = None if role == "admin" else current_user_id
+    
+    
     post = await delete_post(
         db,
         post_id,
-        author_id=current_user_id,
+        author_id=author_id,
     )
 
+    
     if post is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

@@ -63,5 +63,6 @@ class UserRead(BaseModel):
     birth_date: date
     first_name: str
     last_name: str
+    role: str
     is_active: bool
     created_at: datetime

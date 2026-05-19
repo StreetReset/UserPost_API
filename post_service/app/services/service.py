@@ -153,17 +153,23 @@ async def archive_post(db: AsyncSession, post_id: int, author_id: int) -> Post |
     return post
 
 
-async def delete_post(db: AsyncSession, post_id: int, author_id: int) -> Post | None:
+async def delete_post(
+    db: AsyncSession, 
+    post_id: int, 
+    author_id: int | None = None,
+    ) -> Post | None:
     """
     Soft Delete Post
     """
-    post = await db.scalar(
-        select(Post).where(
-            Post.id == post_id,
-            Post.author_id == author_id,
-            Post.is_active,
-        )
+    query = select(Post).where(
+        Post.id == post_id,
+        Post.is_active,
     )
+    
+    if author_id is not None:
+        query = query.where(Post.author_id == author_id)
+        
+    post = await db.scalar(query)
 
     if post is None:
         return None

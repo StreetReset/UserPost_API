@@ -1,10 +1,13 @@
 from datetime import datetime, date
-
-from sqlalchemy import String, CheckConstraint, Date, DateTime, text
+import enum
+from sqlalchemy import String, CheckConstraint, Date, DateTime, Enum, text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from user_service.app.core.database import Base
 
+class Role(enum.Enum):
+    USER = "user"
+    ADMIN = "admin"
 
 class User(Base):
     __tablename__ = "users"
@@ -19,6 +22,7 @@ class User(Base):
     first_name: Mapped[str] = mapped_column(String(100), nullable=False)
     last_name: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
 
+    role : Mapped[str] = mapped_column(Enum(Role), default=Role.USER, nullable=False)
     is_active: Mapped[bool] = mapped_column(default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=text("TIMEZONE('utc', now())"))
 

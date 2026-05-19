@@ -1,9 +1,9 @@
 # UserPost_API
 
-Учебный backend-проект на FastAPI с двумя сервисами:
+Учебный backend-проект на FastAPI с двумя отдельными сервисами:
 
-- `user_service` - управление пользователями;
-- `post_service` - управление постами.
+- `user_service` - пользователи, регистрация, логин, JWT, роли;
+- `post_service` - посты, статусы постов и проверка доступа по JWT.
 
 Проект использует PostgreSQL, SQLAlchemy Async, Alembic, Pydantic и `uv`.
 
@@ -17,29 +17,35 @@
 - PostgreSQL
 - asyncpg / psycopg2-binary
 - Pydantic
+- python-jose
+- pwdlib[argon2]
 - uv
 
 ## Структура проекта
 
 ```text
-Pet_api/
+UserPost_API/
 ├── user_service/
 │   └── app/
+│       ├── auth/          # JWT, login, refresh, auth dependencies
 │       ├── core/          # подключение к БД
 │       ├── migrations/    # Alembic-миграции users
 │       ├── models/        # SQLAlchemy-модели users
 │       ├── routers/       # API-роуты users
 │       ├── schemas/       # Pydantic-схемы users
 │       ├── services/      # бизнес-логика users
+│       ├── config.py      # настройки user_service
 │       └── main.py        # FastAPI-приложение User-Service
 ├── post_service/
 │   └── app/
+│       ├── auth/          # проверка Bearer JWT и ролей
 │       ├── core/          # подключение к БД
 │       ├── migrations/    # Alembic-миграции posts
 │       ├── models/        # SQLAlchemy-модели posts
 │       ├── routers/       # API-роуты posts
 │       ├── schemas/       # Pydantic-схемы posts
 │       ├── services/      # бизнес-логика posts
+│       ├── config.py      # настройки post_service
 │       └── main.py        # FastAPI-приложение Post-Service
 ├── pyproject.toml
 ├── uv.lock
@@ -65,31 +71,27 @@ CREATE DATABASE post_service_db;
 
 Каждый сервис читает свой `.env` из папки `app`.
 
-Файл:
-
-```text
-user_service/app/.env
-```
-
-Пример:
+Файл `user_service/app/.env`:
 
 ```env
 DATABASE_URL=postgresql+asyncpg://postgres:password@localhost:5432/user_service_db
+SECRET_KEY=change-me
+ALGORITHM=HS256
+ACCESS_TOKEN_EXPIRE_MINUTES=30
+REFRESH_TOKEN_EXPIRE_DAYS=7
 ```
 
-Файл:
-
-```text
-post_service/app/.env
-```
-
-Пример:
+Файл `post_service/app/.env`:
 
 ```env
 DATABASE_URL=postgresql+asyncpg://postgres:password@localhost:5432/post_service_db
+SECRET_KEY=change-me
+ALGORITHM=HS256
 ```
 
-Файлы `.env` не добавляются в Git, потому что содержат локальные настройки и пароли.
+Важно: `SECRET_KEY` и `ALGORITHM` должны совпадать в обоих сервисах, потому что `user_service` выпускает JWT, а `post_service` проверяет эти токены.
+
+Файлы `.env` не добавляются в Git, потому что содержат локальные настройки и секреты.
 
 ## Миграции
 
@@ -152,23 +154,65 @@ http://127.0.0.1:8001/docs
 | `id` | `int` | Первичный ключ |
 | `username` | `str` | Уникальный username, 3-30 символов |
 | `email` | `str` | Уникальный email |
+| `hashed_password` | `str` | Хеш пароля |
 | `birth_date` | `date` | Дата рождения, не может быть в будущем |
 | `first_name` | `str` | Имя |
 | `last_name` | `str` | Фамилия |
+| `role` | `Role` | Роль пользователя: `user` или `admin` |
 | `is_active` | `bool` | Признак активного пользователя |
 | `created_at` | `datetime` | Дата создания в UTC |
 
-### API
+### Роли
 
-| Метод | URL | Описание |
-| --- | --- | --- |
-| `GET` | `/` | Проверка работы сервиса |
-| `POST` | `/users/` | Создать пользователя |
-| `GET` | `/users/active` | Получить активных пользователей |
-| `GET` | `/users/inactive` | Получить неактивных пользователей |
-| `GET` | `/users/{user_id}` | Получить пользователя по ID |
-| `PATCH` | `/users/{user_id}` | Частично обновить пользователя |
-| `DELETE` | `/users/{user_id}` | Мягко удалить пользователя |
+- `user` - обычный пользователь;
+- `admin` - администратор.
+
+Роль хранится в `users.role` и добавляется в JWT при логине и обновлении access token.
+
+### Auth API
+
+| Метод | URL | Доступ | Описание |
+| --- | --- | --- | --- |
+| `POST` | `/auth/login` | Public | Логин по username/email и паролю |
+| `GET` | `/auth/me` | Bearer access token | Получить текущего пользователя |
+| `POST` | `/auth/refresh` | Refresh token | Выпустить новый access token |
+
+`POST /auth/login` использует `OAuth2PasswordRequestForm`, поэтому данные отправляются как form-data:
+
+```text
+username=ivan_01
+password=strongpassword
+```
+
+Ответ:
+
+```json
+{
+  "access_token": "eyJ...",
+  "refresh_token": "eyJ...",
+  "token_type": "bearer"
+}
+```
+
+`POST /auth/refresh` сейчас принимает `refresh_token` как query-параметр:
+
+```text
+POST /auth/refresh?refresh_token=eyJ...
+```
+
+### Users API
+
+| Метод | URL | Доступ | Описание |
+| --- | --- | --- | --- |
+| `GET` | `/` | Public | Проверка работы сервиса |
+| `POST` | `/users/` | Public | Создать пользователя |
+| `GET` | `/users/active` | Public | Получить активных пользователей |
+| `GET` | `/users/inactive` | Public | Получить неактивных пользователей |
+| `GET` | `/users/{user_id}` | Public | Получить пользователя по ID |
+| `PATCH` | `/users/{user_id}` | Public | Частично обновить пользователя |
+| `DELETE` | `/users/{user_id}` | Public | Мягко удалить пользователя |
+
+На текущем этапе CRUD пользователей ещё не закрыт ролями. Логичный следующий шаг - ограничить списки пользователей и удаление чужих аккаунтов ролью `admin`, а изменение профиля разрешить самому пользователю или `admin`.
 
 ### Пример создания пользователя
 
@@ -176,15 +220,19 @@ http://127.0.0.1:8001/docs
 {
   "username": "ivan_01",
   "email": "ivan@example.com",
+  "password": "strongpassword",
   "birth_date": "2000-01-01",
   "first_name": "Ivan",
   "last_name": "Petrov"
 }
 ```
 
-### Особенности
+### Особенности User-Service
 
+- `username` нормализуется в lowercase.
+- `first_name` и `last_name` очищаются и приводятся к title-case.
 - `username` и `email` уникальны.
+- Пароль не хранится открытым текстом, сохраняется только `hashed_password`.
 - При создании проверяются дубли `username` и `email`.
 - При обновлении проверяется дубль `email`.
 - `DELETE /users/{user_id}` не удаляет запись физически, а выставляет `is_active = false`.
@@ -197,7 +245,7 @@ http://127.0.0.1:8001/docs
 | Поле | Тип | Описание |
 | --- | --- | --- |
 | `id` | `int` | Первичный ключ |
-| `author_id` | `int` | ID автора |
+| `author_id` | `int` | ID автора из JWT |
 | `title` | `str` | Заголовок поста |
 | `content` | `str` | Текст поста |
 | `status` | `PostStatus` | Статус поста |
@@ -207,67 +255,82 @@ http://127.0.0.1:8001/docs
 
 ### Статусы поста
 
-- `DRAFT` - черновик;
-- `PUBLISHED` - опубликован;
-- `ARCHIVED` - архивирован.
+- `draft` - черновик;
+- `published` - опубликован;
+- `archived` - архивирован.
 
-### API
+### Posts API
 
-| Метод | URL | Описание |
-| --- | --- | --- |
-| `GET` | `/` | Проверка работы сервиса |
-| `POST` | `/posts/` | Создать пост |
-| `GET` | `/posts/` | Получить активные посты |
-| `GET` | `/posts/by-author/{author_id}` | Получить посты автора |
-| `GET` | `/posts/published` | Получить опубликованные посты |
-| `GET` | `/posts/archived` | Получить архивированные посты |
-| `GET` | `/posts/{post_id}` | Получить пост по ID |
-| `PATCH` | `/posts/{post_id}` | Частично обновить пост |
-| `PATCH` | `/posts/{post_id}/publish` | Опубликовать пост |
-| `PATCH` | `/posts/{post_id}/archive` | Архивировать пост |
-| `DELETE` | `/posts/{post_id}` | Мягко удалить пост |
+| Метод | URL | Доступ | Описание |
+| --- | --- | --- | --- |
+| `GET` | `/` | Public | Проверка работы сервиса |
+| `POST` | `/posts/` | Bearer access token | Создать пост от имени текущего пользователя |
+| `GET` | `/posts/` | Admin only | Получить активные посты |
+| `GET` | `/posts/by-author` | Bearer access token | Получить посты текущего пользователя |
+| `GET` | `/posts/published` | Public | Получить опубликованные посты |
+| `GET` | `/posts/archived` | Public | Получить архивированные посты |
+| `GET` | `/posts/{post_id}` | Public | Получить активный пост по ID |
+| `PATCH` | `/posts/{post_id}` | Bearer access token | Обновить свой пост |
+| `PATCH` | `/posts/{post_id}/publish` | Bearer access token | Опубликовать свой пост |
+| `PATCH` | `/posts/{post_id}/archive` | Bearer access token | Архивировать свой пост |
+| `DELETE` | `/posts/{post_id}` | Bearer access token | Удалить свой пост; `admin` может удалить любой пост |
 
 ### Пример создания поста
 
+`author_id` не передается в теле запроса. Он берется из `sub` в JWT.
+
 ```json
 {
-  "author_id": 1,
   "title": "First post",
   "content": "Post content"
 }
 ```
 
-### Особенности
+Пример заголовка:
+
+```text
+Authorization: Bearer eyJ...
+```
+
+### Правила доступа в Post-Service
+
+- `post_service` не хранит пользователей, а доверяет JWT, выпущенному `user_service`.
+- JWT должен быть access token и содержать `sub` с ID пользователя.
+- JWT должен содержать роль `user` или `admin`.
+- При создании поста `author_id` всегда берется из токена.
+- Обычный пользователь может обновлять, публиковать, архивировать и удалять только свои посты.
+- `admin` может смотреть список всех активных постов через `GET /posts/`.
+- `admin` может мягко удалить любой пост через `DELETE /posts/{post_id}`.
+- `admin` не создает и не обновляет посты от чужого имени.
+
+### Особенности Post-Service
 
 - `DELETE /posts/{post_id}` выставляет `is_active = false`.
 - Архивированный пост нельзя обновить.
-- Публикация работает только для постов в статусе `DRAFT`.
-- Архивация работает только для постов в статусе `PUBLISHED`.
-- Сейчас `author_id` хранится как число без проверки существования пользователя в `user_service`.
+- Публикация работает только для постов в статусе `draft`.
+- Архивация работает только для постов в статусе `published`.
+- `author_id` хранится как число без внешнего ключа на `user_service`.
 
-## План развития
+## Текущий статус
 
-Следующий крупный этап - авторизация и роли.
+Сделано:
 
-Планируемая логика:
-
-- пользователь регистрируется и получает учетную запись;
-- пользователь входит по логину и паролю;
-- после входа API выдает токен доступа;
-- при создании поста `author_id` берется из токена, а не передается вручную;
-- пользователь создает, обновляет и удаляет только свои посты;
-- администратор может управлять пользователями и постами шире обычного пользователя.
-
-Возможные роли:
-
-- `USER` - обычный пользователь, пишет посты от своего имени;
-- `ADMIN` - администратор, может видеть и управлять большим набором данных.
-
-Для этого потребуется добавить:
-
-- поле `password_hash` в пользователя;
-- поле `role` в пользователя;
-- эндпоинты регистрации и логина;
+- CRUD пользователей;
 - хеширование паролей;
-- JWT-токены или другой механизм авторизации;
-- проверку текущего пользователя в `post_service`.
+- login/refresh/me;
+- access и refresh JWT;
+- роли `user` и `admin`;
+- CRUD и статусы постов;
+- создание постов от имени пользователя из JWT;
+- защита изменения/публикации/архивации своих постов;
+- admin-доступ к списку всех постов;
+- admin-удаление чужих постов.
+
+Ближайшие логичные доработки:
+
+- закрыть `user_service` ролями;
+- перенести `refresh_token` из query-параметра в JSON body;
+- добавить тесты на auth, роли и права доступа;
+- добавить `.env.example` для обоих сервисов;
+- убрать дублирование JWT-проверок в `post_service/app/auth/dependencies.py`;
+- добавить пагинацию через query-параметры вместо фиксированных `limit(10).offset(0)`.
