@@ -7,6 +7,8 @@ from user_service.app.auth.jwt import decode_token
 from user_service.app.core.db_depends import get_async_db
 from user_service.app.models.user_models import User as UserModel
 
+# Swagger/FastAPI берет access token из Authorization: Bearer <token>
+# и передает в зависимости как обычную строку token.
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
 
 async def get_current_user(
@@ -29,11 +31,13 @@ async def get_current_user(
     if token_type != "access":
         raise credentials_exception
     
+    # В JWT поле sub хранит id пользователя, который выпустил user_service.
     try:
         user_id = int(payload.get("sub"))
     except (TypeError, ValueError):
         raise credentials_exception
     
+    # Дополнительно проверяем БД: пользователь должен существовать и быть активным.
     user = await db.scalar(
         select(UserModel)
         .where(UserModel.id == user_id, UserModel.is_active)
@@ -48,6 +52,7 @@ async def get_current_user(
 async def get_current_admin(
     current_user: UserModel = Depends(get_current_user),
 ) -> UserModel:
+    # Сначала Depends(get_current_user) валидирует токен, потом проверяем роль.
     if current_user.role.value != "admin":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,

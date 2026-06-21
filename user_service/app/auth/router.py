@@ -25,6 +25,7 @@ router = APIRouter(
 async def login(
     form_data : OAuth2PasswordRequestForm = Depends(), 
     db : AsyncSession = Depends(get_async_db)):
+    # OAuth2PasswordRequestForm читает username/password из form-data, как ожидает Swagger Authorize.
     user = await get_user_by_username_or_email(
         db,
         username=form_data.username,
@@ -51,6 +52,7 @@ async def login(
             detail="User is inactive",
         )
         
+    # sub - стандартное JWT-поле subject; здесь это user.id.
     token_data = {
         "sub" : str(user.id),
         "role" : user.role.value
@@ -92,6 +94,7 @@ async def refresh_token(
     if payload.get("token_type") != "refresh":
         raise credentials_exception
 
+    # Даже с валидным refresh token проверяем, что пользователь все еще активен.
     try:
         user_id = int(payload.get("sub"))
     except (TypeError, ValueError):

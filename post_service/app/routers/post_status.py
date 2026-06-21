@@ -16,6 +16,7 @@ router = APIRouter(
 @router.patch("/{post_id}/publish", response_model=PostRead, status_code=status.HTTP_200_OK)
 async def publish_post_route(
     post_id: int,
+    # Публиковать можно только свои посты: author_id берется из JWT.
     current_user_id: int = Depends(get_current_user_id),
     db: AsyncSession = Depends(get_async_db),
 ):
@@ -37,6 +38,7 @@ async def publish_post_route(
 @router.patch("/{post_id}/archive", response_model=PostRead, status_code=status.HTTP_200_OK)
 async def archive_post_route(
     post_id: int,
+    # Архивирование тоже проверяет владельца через user_id из токена.
     current_user_id: int = Depends(get_current_user_id),
     db: AsyncSession = Depends(get_async_db),
 ):

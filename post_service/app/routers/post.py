@@ -28,6 +28,7 @@ router = APIRouter(
 @router.post("/", response_model=PostRead, status_code=status.HTTP_201_CREATED)
 async def create_post_route(
     post_data: PostCreate,
+    # Depends достает user_id из JWT; author_id из тела запроса не принимаем.
     current_user_id : int = Depends(get_current_user_id),
     db: AsyncSession = Depends(get_async_db),
 ):
@@ -41,6 +42,7 @@ async def create_post_route(
 
 @router.get("/", response_model=list[PostRead])
 async def get_list_posts_route(
+    # Значение не используется, важен сам факт успешной проверки admin-роли.
     _: str = Depends(get_current_admin),
     db: AsyncSession = Depends(get_async_db),
 ):
@@ -121,11 +123,13 @@ async def update_post_route(
 @router.delete("/{post_id}", response_model=PostRead, status_code=status.HTTP_200_OK)
 async def delete_post_route(
     post_id: int,
+    # Для удаления нужен и user_id, и role: admin может удалить любой пост.
     current_user: tuple[int, str] = Depends(get_current_user_context),
     db: AsyncSession = Depends(get_async_db),
 ):
     current_user_id, role = current_user
     
+    # None означает "не фильтровать по author_id" для admin.
     author_id = None if role == "admin" else current_user_id
     
     

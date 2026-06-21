@@ -13,6 +13,7 @@ def create_access_token(data : dict) -> str:
     
     expire = datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     
+    # token_type нужен, чтобы access и refresh токены нельзя было использовать вместо друг друга.
     to_encode.update({
         "exp" : expire,
         "token_type" : "access",
@@ -28,6 +29,7 @@ def create_refresh_token(data: dict) -> str:
         days=REFRESH_TOKEN_EXPIRE_DAYS
     )
 
+    # Refresh token живет дольше, но подходит только для выпуска нового access token.
     to_encode.update({
         "exp": expire,
         "token_type": "refresh",
@@ -36,6 +38,7 @@ def create_refresh_token(data: dict) -> str:
     return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
 def decode_token(token : str) -> dict | None:
+    # python-jose проверяет подпись JWT и exp; при любой проблеме возвращаем None.
     try:
         return jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
     except JWTError:

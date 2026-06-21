@@ -1,11 +1,37 @@
 # UserPost_API
 
-Учебный backend-проект на FastAPI с двумя отдельными сервисами:
+Учебный backend-проект на FastAPI с двумя отдельными сервисами и Kafka для событийного обмена:
 
-- `user_service` - пользователи, регистрация, логин, JWT, роли;
-- `post_service` - посты, статусы постов и проверка доступа по JWT.
+- `user_service` - пользователи, регистрация, логин, JWT, роли и публикация user-событий в Kafka;
+- `post_service` - посты, статусы постов и проверка доступа по JWT, выпущенному `user_service`.
 
-Проект использует PostgreSQL, SQLAlchemy Async, Alembic, Pydantic и `uv`.
+Проект использует PostgreSQL, SQLAlchemy Async, Alembic, Pydantic, JWT, Kafka, Docker Compose и `uv`.
+
+## Архитектура
+
+```text
+client / Swagger
+      |
+      | login/password
+      v
+user_service :8000
+      |
+      | access_token / refresh_token
+      v
+client / Swagger
+      |
+      | Authorization: Bearer <access_token>
+      v
+post_service :8001
+```
+
+Kafka сейчас используется для событий пользователей:
+
+```text
+user_service -> Kafka topic user-events -> consumer
+```
+
+Пока consumer может быть консольным. Следующий логичный этап - сделать consumer внутри `post_service`, чтобы он хранил локальную проекцию пользователей.
 
 ## Стек
 
@@ -15,7 +41,9 @@
 - SQLAlchemy Async
 - Alembic
 - PostgreSQL
-- asyncpg / psycopg2-binary
+- Kafka
+- Docker Compose
+- aiokafka
 - Pydantic
 - python-jose
 - pwdlib[argon2]
@@ -29,6 +57,7 @@ UserPost_API/
 │   └── app/
 │       ├── auth/          # JWT, login, refresh, auth dependencies
 │       ├── core/          # подключение к БД
+│       ├── events/        # Kafka producer
 │       ├── migrations/    # Alembic-миграции users
 │       ├── models/        # SQLAlchemy-модели users
 │       ├── routers/       # API-роуты users
@@ -38,7 +67,7 @@ UserPost_API/
 │       └── main.py        # FastAPI-приложение User-Service
 ├── post_service/
 │   └── app/
-│       ├── auth/          # проверка Bearer JWT и ролей
+│       ├── auth/          # проверка JWT и ролей
 │       ├── core/          # подключение к БД
 │       ├── migrations/    # Alembic-миграции posts
 │       ├── models/        # SQLAlchemy-модели posts
@@ -47,6 +76,7 @@ UserPost_API/
 │       ├── services/      # бизнес-логика posts
 │       ├── config.py      # настройки post_service
 │       └── main.py        # FastAPI-приложение Post-Service
+├── docker-compose.yml     # локальная Kafka
 ├── pyproject.toml
 ├── uv.lock
 └── README.md
@@ -79,6 +109,7 @@ SECRET_KEY=change-me
 ALGORITHM=HS256
 ACCESS_TOKEN_EXPIRE_MINUTES=30
 REFRESH_TOKEN_EXPIRE_DAYS=7
+KAFKA_BOOTSTRAP_SERVERS=localhost:9092
 ```
 
 Файл `post_service/app/.env`:
@@ -87,11 +118,113 @@ REFRESH_TOKEN_EXPIRE_DAYS=7
 DATABASE_URL=postgresql+asyncpg://postgres:password@localhost:5432/post_service_db
 SECRET_KEY=change-me
 ALGORITHM=HS256
+USER_SERVICE_AUTH_TOKEN_URL=http://127.0.0.1:8000/auth/login
 ```
 
 Важно: `SECRET_KEY` и `ALGORITHM` должны совпадать в обоих сервисах, потому что `user_service` выпускает JWT, а `post_service` проверяет эти токены.
 
+`USER_SERVICE_AUTH_TOKEN_URL` нужен Swagger UI в `post_service`: через него окно Authorize отправляет username/password в `user_service` и получает access token.
+
 Файлы `.env` не добавляются в Git, потому что содержат локальные настройки и секреты.
+
+## Kafka
+
+Kafka поднимается локально через Docker Compose.
+
+Запустить Kafka:
+
+```bash
+docker compose up -d
+```
+
+Проверить контейнер:
+
+```bash
+docker ps
+```
+
+Ожидаемый контейнер:
+
+```text
+userpost-kafka
+```
+
+Kafka доступна локально по адресу:
+
+```text
+localhost:9092
+```
+
+Создать topic `user-events`, если он еще не создан:
+
+```bash
+docker exec -it userpost-kafka /opt/kafka/bin/kafka-topics.sh --create --topic user-events --bootstrap-server localhost:9092 --partitions 1 --replication-factor 1
+```
+
+Посмотреть topics:
+
+```bash
+docker exec -it userpost-kafka /opt/kafka/bin/kafka-topics.sh --list --bootstrap-server localhost:9092
+```
+
+Читать новые события из `user-events`:
+
+```bash
+docker exec -it userpost-kafka /opt/kafka/bin/kafka-console-consumer.sh --topic user-events --bootstrap-server localhost:9092
+```
+
+Читать события с начала topic:
+
+```bash
+docker exec -it userpost-kafka /opt/kafka/bin/kafka-console-consumer.sh --topic user-events --from-beginning --bootstrap-server localhost:9092
+```
+
+Остановить Kafka:
+
+```bash
+docker compose down
+```
+
+## Порядок запуска
+
+1. Запустить Docker Desktop.
+
+2. Поднять Kafka:
+
+```bash
+docker compose up -d
+```
+
+3. Применить миграции, если база пустая:
+
+```bash
+uv run alembic -c user_service/app/alembic.ini upgrade head
+uv run alembic -c post_service/app/alembic.ini upgrade head
+```
+
+4. Запустить `user_service`:
+
+```bash
+uv run uvicorn user_service.app.main:app --reload --port 8000
+```
+
+Swagger:
+
+```text
+http://127.0.0.1:8000/docs
+```
+
+5. Запустить `post_service`:
+
+```bash
+uv run uvicorn post_service.app.main:app --reload --port 8001
+```
+
+Swagger:
+
+```text
+http://127.0.0.1:8001/docs
+```
 
 ## Миграции
 
@@ -119,31 +252,48 @@ uv run alembic -c user_service/app/alembic.ini revision --autogenerate -m "migra
 uv run alembic -c post_service/app/alembic.ini revision --autogenerate -m "migration name"
 ```
 
-## Запуск
+## Авторизация в Swagger
 
-Запуск User-Service:
+### User-Service
 
-```bash
-uv run uvicorn user_service.app.main:app --reload --port 8000
-```
-
-Swagger:
+В `user_service` логин выполняется через:
 
 ```text
-http://127.0.0.1:8000/docs
+POST /auth/login
 ```
 
-Запуск Post-Service:
-
-```bash
-uv run uvicorn post_service.app.main:app --reload --port 8001
-```
-
-Swagger:
+`/auth/login` использует `OAuth2PasswordRequestForm`, поэтому данные отправляются как form-data:
 
 ```text
-http://127.0.0.1:8001/docs
+username=admin
+password=strongpassword
 ```
+
+Ответ:
+
+```json
+{
+  "access_token": "eyJ...",
+  "refresh_token": "eyJ...",
+  "token_type": "bearer"
+}
+```
+
+### Post-Service
+
+В `post_service` Swagger уже знает адрес логина из:
+
+```env
+USER_SERVICE_AUTH_TOKEN_URL=http://127.0.0.1:8000/auth/login
+```
+
+Поэтому в `http://127.0.0.1:8001/docs` можно нажать **Authorize**, ввести `username` и `password`, а Swagger сам:
+
+1. отправит логин-запрос в `user_service`;
+2. получит `access_token`;
+3. будет подставлять `Authorization: Bearer <token>` в запросы к `post_service`.
+
+`post_service` пароль не проверяет и не хранит. Он получает только JWT и проверяет его через общий `SECRET_KEY`.
 
 ## User-Service
 
@@ -177,23 +327,6 @@ http://127.0.0.1:8001/docs
 | `GET` | `/auth/me` | Bearer access token | Получить текущего пользователя |
 | `POST` | `/auth/refresh` | Refresh token | Выпустить новый access token |
 
-`POST /auth/login` использует `OAuth2PasswordRequestForm`, поэтому данные отправляются как form-data:
-
-```text
-username=ivan_01
-password=strongpassword
-```
-
-Ответ:
-
-```json
-{
-  "access_token": "eyJ...",
-  "refresh_token": "eyJ...",
-  "token_type": "bearer"
-}
-```
-
 `POST /auth/refresh` сейчас принимает `refresh_token` как query-параметр:
 
 ```text
@@ -226,6 +359,40 @@ POST /auth/refresh?refresh_token=eyJ...
   "last_name": "Petrov"
 }
 ```
+
+### Kafka-события User-Service
+
+После успешных изменений в БД `user_service` публикует события в topic:
+
+```text
+user-events
+```
+
+События:
+
+| Event type | Когда отправляется |
+| --- | --- |
+| `user.created` | После создания пользователя |
+| `user.updated` | После обновления пользователя |
+| `user.deleted` | После мягкого удаления пользователя |
+
+Пример события:
+
+```json
+{
+  "event_type": "user.updated",
+  "event_version": 1,
+  "payload": {
+    "user_id": 2,
+    "username": "ivan_01",
+    "email": "ivan@example.com",
+    "role": "user",
+    "is_active": true
+  }
+}
+```
+
+`user.deleted` означает мягкое удаление: пользователь остается в БД, но `is_active` становится `false`.
 
 ### Особенности User-Service
 
@@ -295,7 +462,7 @@ Authorization: Bearer eyJ...
 
 ### Правила доступа в Post-Service
 
-- `post_service` не хранит пользователей, а доверяет JWT, выпущенному `user_service`.
+- `post_service` не ходит в БД `user_service`.
 - JWT должен быть access token и содержать `sub` с ID пользователя.
 - JWT должен содержать роль `user` или `admin`.
 - При создании поста `author_id` всегда берется из токена.
@@ -322,6 +489,11 @@ Authorization: Bearer eyJ...
 - login/refresh/me;
 - access и refresh JWT;
 - роли `user` и `admin`;
+- Kafka в Docker Compose;
+- topic `user-events`;
+- Kafka producer в `user_service`;
+- события `user.created`, `user.updated`, `user.deleted`;
+- Swagger-login в `post_service` через `/auth/login` из `user_service`;
 - CRUD и статусы постов;
 - создание постов от имени пользователя из JWT;
 - защита изменения/публикации/архивации своих постов;
@@ -330,8 +502,10 @@ Authorization: Bearer eyJ...
 
 Ближайшие логичные доработки:
 
+- добавить Kafka consumer в `post_service`;
+- завести в `post_service` таблицу `users_projection`;
+- обновлять `users_projection` по событиям `user.created`, `user.updated`, `user.deleted`;
+- проверять в `post_service`, что пользователь из JWT существует и активен в локальной проекции;
 - перенести `refresh_token` из query-параметра в JSON body;
-- добавить тесты на auth, роли и права доступа;
-- убрать дублирование JWT-проверок в `post_service/app/auth/dependencies.py`;
+- добавить тесты на auth, роли, Kafka-события и права доступа;
 - добавить пагинацию через query-параметры вместо фиксированных `limit(10).offset(0)`.
-- связать жизненный цикл пользователей с постами через события.

@@ -40,6 +40,7 @@ logs/
 # IDE and OS files
 .idea/
 .vscode/
+.agents/
 .DS_Store
 Thumbs.db
 

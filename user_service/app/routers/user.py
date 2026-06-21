@@ -18,11 +18,24 @@ from user_service.app.services.service import (
     get_user_by_id,
     delete_user
 )
+from user_service.app.events.kafka import send_event
 
 router = APIRouter(
     prefix="/users",
     tags=["users"]
 )
+
+
+# Единый формат payload для Kafka-событий о пользователях.
+def build_user_event_payload(user: UserModel) -> dict:
+    return {
+        "user_id": user.id,
+        "username": user.username,
+        "email": user.email,
+        "role": user.role.value,
+        "is_active": user.is_active,
+    }
+
 
 @router.post("/", response_model=UserRead, status_code=status.HTTP_201_CREATED)
 async def create_user_route(
@@ -32,6 +45,16 @@ async def create_user_route(
         user = await create_user(db, user_data)
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc))
+
+    # После успешного commit в БД публикуем событие, чтобы другие сервисы обновили свою проекцию.
+    await send_event(
+        "user-events",
+        {
+            "event_type": "user.created",
+            "event_version": 1,
+            "payload": build_user_event_payload(user),
+        },
+    )
     
     return user
 
@@ -80,6 +103,16 @@ async def update_user_route(user_id : int, user_data : UserUpdate, current_user 
     
     if user is None:
         raise HTTPException(status_code=404, detail="User not found")
+
+    # post_service потом сможет дочитать это событие и обновить локальную копию пользователя.
+    await send_event(
+        "user-events",
+        {
+            "event_type": "user.updated",
+            "event_version": 1,
+            "payload": build_user_event_payload(user),
+        },
+    )
     
     return user
 
@@ -102,5 +135,15 @@ async def delete_user_route(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="User not found",
         )
+
+    # DELETE мягкий: строка остается в БД, но is_active становится false.
+    await send_event(
+        "user-events",
+        {
+            "event_type": "user.deleted",
+            "event_version": 1,
+            "payload": build_user_event_payload(user),
+        },
+    )
         
     return user
