@@ -3,15 +3,8 @@ from datetime import datetime
 from post_service.app.models.post_models import PostStatus
 from pydantic import BaseModel, ConfigDict, Field
 
-class PostCreate(BaseModel):
-    title: str = Field(..., min_length=1, max_length=255)
-    content: str = Field(..., min_length=1)
-
-class PostUpdate(BaseModel):
-    title: str | None = Field(None, min_length=1, max_length=255)
-    content: str | None = Field(None, min_length=1)
-
 class PostRead(BaseModel):
+
     model_config = ConfigDict(from_attributes=True)
 
     id: int
@@ -22,3 +15,12 @@ class PostRead(BaseModel):
     is_active: bool
     created_at: datetime
     updated_at: datetime
+
+class PostCreate(BaseModel):
+    title: str = Field(..., min_length=1, max_length=100)
+    content: str = Field(..., min_length=1)
+
+class PostUpdate(PostCreate):
+    pass
+
+
