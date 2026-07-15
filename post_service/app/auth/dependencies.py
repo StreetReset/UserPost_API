@@ -2,11 +2,11 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
 
-from post_service.app.config import SECRET_KEY, ALGORITHM, USER_SERVICE_AUTH_TOKEN_URL
+from post_service.app.config import settings
 
 # В Swagger post_service появится форма username/password.
 # Сам пароль уйдет в user_service, а post_service получит только Bearer token.
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl=USER_SERVICE_AUTH_TOKEN_URL)
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl=settings.USER_SERVICE_AUTH_TOKEN_URL)
 
 
 def decode_access_token(token: str) -> dict:
@@ -17,7 +17,7 @@ def decode_access_token(token: str) -> dict:
     )
 
     try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
     except JWTError:
         raise credentials_exception
 
