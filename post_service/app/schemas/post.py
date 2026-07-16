@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from post_service.app.models.post_models import PostStatus
+from ..models.post_models import PostStatus
 from pydantic import BaseModel, ConfigDict, Field
 
 class PostRead(BaseModel):
@@ -20,7 +20,8 @@ class PostCreate(BaseModel):
     title: str = Field(..., min_length=1, max_length=100)
     content: str = Field(..., min_length=1)
 
-class PostUpdate(PostCreate):
-    pass
+class PostUpdate(BaseModel):
+    title: str | None = Field(default=None, min_length=1, max_length=100)
+    content: str | None = Field(default=None, min_length=1)
 
 

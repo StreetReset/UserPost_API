@@ -1,14 +1,14 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from post_service.app.auth.dependencies import get_current_admin, get_current_user_id, get_current_user_context
-from post_service.app.schemas.post import (
+from ..auth.dependencies import get_current_admin, get_current_user_id, get_current_user_context
+from ..schemas.post import (
     PostCreate,
     PostUpdate,
     PostRead
 )
-from post_service.app.core.db_depends import get_async_db
-from post_service.app.services.service import (
+from ..core.db_depends import get_async_db
+from ..services.post_service import (
     create_post,
     get_post_by_id,
     get_list_posts,

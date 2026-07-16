@@ -2,7 +2,7 @@ import enum
 from datetime import datetime
 from sqlalchemy import DateTime, Enum, String, Text, text
 from sqlalchemy.orm import Mapped, mapped_column
-from post_service.app.core.database import Base
+from ..core.database import Base
 
 
 class PostStatus(enum.Enum):
@@ -17,7 +17,7 @@ class Post(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     author_id: Mapped[int] = mapped_column(nullable=False, index=True)
 
-    title: Mapped[str] = mapped_column(String(255), nullable=False)
+    title: Mapped[str] = mapped_column(String(100), nullable=False)
     content: Mapped[str] = mapped_column(Text, nullable=False)
     status: Mapped[PostStatus] = mapped_column(Enum(PostStatus), default=PostStatus.DRAFT, nullable=False)
 

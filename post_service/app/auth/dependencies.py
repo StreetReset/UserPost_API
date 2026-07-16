@@ -2,7 +2,7 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
 
-from post_service.app.config import settings
+from ..config import settings
 
 # В Swagger post_service появится форма username/password.
 # Сам пароль уйдет в user_service, а post_service получит только Bearer token.

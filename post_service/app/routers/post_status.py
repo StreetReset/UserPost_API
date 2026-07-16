@@ -1,11 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from post_service.app.auth.dependencies import get_current_user_id
-from post_service.app.core.db_depends import get_async_db
-from post_service.app.schemas.post import PostRead
+from ..auth.dependencies import get_current_user_id
+from ..core.db_depends import get_async_db
+from ..schemas.post import PostRead
 
-from post_service.app.services.service import publish_post, archive_post
+from ..services.post_service import publish_post, archive_post
 
 router = APIRouter(
     prefix="/posts",

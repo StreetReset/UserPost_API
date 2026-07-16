@@ -1,5 +1,6 @@
 from fastapi import FastAPI
-from post_service.app.routers import post, post_status
+
+from .routers import post, post_status
 
 
 app = FastAPI(
