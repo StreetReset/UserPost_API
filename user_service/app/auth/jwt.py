@@ -1,45 +1,52 @@
 from datetime import datetime, timedelta, timezone
+
 from jose import JWTError, jwt
 
-from user_service.app.config import(
-    SECRET_KEY,
-    ALGORITHM, 
-    ACCESS_TOKEN_EXPIRE_MINUTES, 
-    REFRESH_TOKEN_EXPIRE_DAYS,
-)
+from ..config import settings
 
-def create_access_token(data : dict) -> str:
+
+def create_access_token(data: dict) -> str:
     to_encode = data.copy()
-    
-    expire = datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    
-    # token_type нужен, чтобы access и refresh токены нельзя было использовать вместо друг друга.
-    to_encode.update({
-        "exp" : expire,
-        "token_type" : "access",
-    })
-    
-    return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+    expire = datetime.now(timezone.utc) + timedelta(
+        minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES
+    )
+    to_encode.update(
+        {
+            "exp": expire,
+            "token_type": "access",
+        }
+    )
+    return jwt.encode(
+        to_encode,
+        settings.SECRET_KEY,
+        algorithm=settings.ALGORITHM,
+    )
 
 
 def create_refresh_token(data: dict) -> str:
     to_encode = data.copy()
-
     expire = datetime.now(timezone.utc) + timedelta(
-        days=REFRESH_TOKEN_EXPIRE_DAYS
+        days=settings.REFRESH_TOKEN_EXPIRE_DAYS
+    )
+    to_encode.update(
+        {
+            "exp": expire,
+            "token_type": "refresh",
+        }
+    )
+    return jwt.encode(
+        to_encode,
+        settings.SECRET_KEY,
+        algorithm=settings.ALGORITHM,
     )
 
-    # Refresh token живет дольше, но подходит только для выпуска нового access token.
-    to_encode.update({
-        "exp": expire,
-        "token_type": "refresh",
-    })
 
-    return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
-
-def decode_token(token : str) -> dict | None:
-    # python-jose проверяет подпись JWT и exp; при любой проблеме возвращаем None.
+def decode_token(token: str) -> dict | None:
     try:
-        return jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        return jwt.decode(
+            token,
+            settings.SECRET_KEY,
+            algorithms=[settings.ALGORITHM],
+        )
     except JWTError:
         return None

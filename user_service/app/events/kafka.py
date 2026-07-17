@@ -3,7 +3,7 @@ from typing import Any
 
 from aiokafka import AIOKafkaProducer
 
-from user_service.app.config import KAFKA_BOOTSTRAP_SERVERS
+from ..config import settings
 
 
 # Один producer живет весь срок работы FastAPI-приложения.
@@ -14,7 +14,7 @@ async def start_kafka_producer() -> None:
     global producer
 
     producer = AIOKafkaProducer(
-        bootstrap_servers=KAFKA_BOOTSTRAP_SERVERS,
+        bootstrap_servers=settings.KAFKA_BOOTSTRAP_SERVERS,
         # Kafka хранит bytes, поэтому dict сериализуем в JSON.
         value_serializer=lambda value: json.dumps(value).encode("utf-8"),
     )

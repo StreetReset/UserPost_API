@@ -1,11 +1,11 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from user_service.app.routers import user
-from user_service.app.auth import router as auth_router
+from .routers import admin_user, user
+from .auth import router as auth_router
 
 from contextlib import asynccontextmanager
-from user_service.app.events.kafka import start_kafka_producer, stop_kafka_producer
+from .events.kafka import start_kafka_producer, stop_kafka_producer
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -34,6 +34,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(admin_user.router)
 app.include_router(user.router)
 app.include_router(auth_router.router)
 

@@ -3,7 +3,7 @@ import enum
 from sqlalchemy import String, CheckConstraint, Date, DateTime, Enum, text
 from sqlalchemy.orm import Mapped, mapped_column
 
-from user_service.app.core.database import Base
+from ..core.database import Base
 
 class Role(enum.Enum):
     USER = "user"
