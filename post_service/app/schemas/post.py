@@ -3,18 +3,19 @@ from datetime import datetime
 from ..models.post_models import PostStatus
 from pydantic import BaseModel, ConfigDict, Field
 
-class PostRead(BaseModel):
-
+class PostPublicRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
     author_id: int
     title: str
     content: str
-    status: PostStatus
-    is_active: bool
     created_at: datetime
     updated_at: datetime
+
+class PostRead(PostPublicRead):
+    status: PostStatus
+    is_active: bool
 
 class PostCreate(BaseModel):
     title: str = Field(..., min_length=1, max_length=100)

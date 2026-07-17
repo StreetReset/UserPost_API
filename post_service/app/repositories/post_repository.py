@@ -15,13 +15,23 @@ class PostRepository:
             Post.id == post_id,
             Post.is_active.is_(True)))
         return result
+
+    async def get_published_by_id(self, post_id: int) -> Post | None:
+        result = await self.session.scalar(
+            select(Post).where(
+                Post.id == post_id,
+                Post.is_active.is_(True),
+                Post.status == PostStatus.PUBLISHED,
+            )
+        )
+        return result
     
 
     async def get_posts_by_author_id(
         self,
         author_id: int,
-        limit: int = 10,
-        offset: int = 0,
+        limit: int,
+        offset: int,
     ) -> list[Post]:
         result = await self.session.scalars(
             select(Post)
@@ -38,8 +48,8 @@ class PostRepository:
 
     async def get_all_active_posts(
         self,
-        limit: int = 10,
-        offset: int = 0,
+        limit: int,
+        offset: int,
     ) -> list[Post]:
         result = await self.session.scalars(
         select(Post)
@@ -53,8 +63,8 @@ class PostRepository:
     async def get_list_drafted_posts_by_author(
         self,
         author_id: int,
-        limit: int = 10,
-        offset: int = 0,
+        limit: int,
+        offset: int,
     ) -> list[Post]:
         result = await self.session.scalars(
         select(Post)
@@ -73,8 +83,8 @@ class PostRepository:
 
     async def get_list_published_posts(
         self,
-        limit: int = 10,
-        offset: int = 0,
+        limit: int,
+        offset: int,
     ) -> list[Post]:
         result = await self.session.scalars(
         select(Post)
@@ -91,8 +101,8 @@ class PostRepository:
 
     async def get_list_archived_posts(
         self,
-        limit: int = 10,
-        offset: int = 0,
+        limit: int,
+        offset: int,
     ) -> list[Post]:
         result = await self.session.scalars(
         select(Post)
@@ -117,7 +127,7 @@ class PostRepository:
         return post
     
     async def update(self, post: Post, post_data: PostUpdate)-> Post:
-        update_data = post_data.model_dump(exclude_unset=True)
+        update_data = post_data.model_dump(exclude_unset=True, exclude_none=True,)
 
         for field, value in update_data.items():
             setattr(post, field, value)

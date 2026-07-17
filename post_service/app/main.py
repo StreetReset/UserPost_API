@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 
-from .routers import post, post_status
+from .routers import admin_post, author_post, post
 
 
 app = FastAPI(
@@ -8,8 +8,9 @@ app = FastAPI(
     version="1.0.0"
 )
 
+app.include_router(author_post.router)
 app.include_router(post.router)
-app.include_router(post_status.router)
+app.include_router(admin_post.router)
 
 @app.get("/")
 async def root():

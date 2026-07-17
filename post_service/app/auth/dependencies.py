@@ -1,3 +1,5 @@
+from typing import Annotated
+
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
@@ -86,3 +88,7 @@ def get_current_user_context(token: str = Depends(oauth2_scheme)) -> tuple[int, 
     except (TypeError, ValueError):
         raise credentials_exception
     return user_id, role
+
+
+CurrentUserIdDep = Annotated[int, Depends(get_current_user_id)]
+CurrentAdminDep = Annotated[str, Depends(get_current_admin)]

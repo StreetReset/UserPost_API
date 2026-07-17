@@ -1,149 +1,28 @@
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.ext.asyncio import AsyncSession
+from typing import Annotated
+from fastapi import APIRouter, Path, Query
 
-from ..auth.dependencies import get_current_admin, get_current_user_id, get_current_user_context
-from ..schemas.post import (
-    PostCreate,
-    PostUpdate,
-    PostRead
-)
-from ..core.db_depends import get_async_db
-from ..services.post_service import (
-    create_post,
-    get_post_by_id,
-    get_list_posts,
-    get_posts_by_author,
-    get_list_published_posts,
-    get_list_archived_posts,
-    update_post,
-    delete_post,
-)
+from ..dependencies.post_dependencies import PostServiceDep
+from ..schemas.post import PostPublicRead
 
 router = APIRouter(
-    prefix="/posts",
-    tags=["posts"]
+    prefix="/api/posts",
+    tags=["posts"],
 )
 
 
-@router.post("/", response_model=PostRead, status_code=status.HTTP_201_CREATED)
-async def create_post_route(
-    post_data: PostCreate,
-    # Depends достает user_id из JWT; author_id из тела запроса не принимаем.
-    current_user_id : int = Depends(get_current_user_id),
-    db: AsyncSession = Depends(get_async_db),
+@router.get("/", response_model=list[PostPublicRead])
+async def get_list_published_posts(
+    post_service: PostServiceDep,
+    limit: Annotated[int, Query(ge=1, le=100)] = 20,
+    offset: Annotated[int, Query(ge=0)] = 0,
 ):
-    post = await create_post(
-        db,
-        post_data,
-        author_id=current_user_id)
-    
-    return post
+    return await post_service.get_list_published_posts(limit, offset)
 
 
-@router.get("/", response_model=list[PostRead])
-async def get_list_posts_route(
-    # Значение не используется, важен сам факт успешной проверки admin-роли.
-    _: str = Depends(get_current_admin),
-    db: AsyncSession = Depends(get_async_db),
+@router.get("/{post_id}", response_model=PostPublicRead)
+async def get_by_id(
+    post_id: Annotated[int, Path(gt=0)],
+    post_service: PostServiceDep,
 ):
-    posts = await get_list_posts(db)
-    return posts
+    return await post_service.get_by_id(post_id)
 
-
-@router.get("/by-author", response_model=list[PostRead])
-async def get_posts_by_author_route(
-    current_user_id: int = Depends(get_current_user_id),
-    db: AsyncSession = Depends(get_async_db)
-):
-    posts = await get_posts_by_author(db, current_user_id)
-    return posts
-
-
-@router.get("/published", response_model=list[PostRead])
-async def get_list_published_posts_route(
-    db: AsyncSession = Depends(get_async_db)
-):
-    posts = await get_list_published_posts(db)
-    return posts
-
-
-@router.get("/archived", response_model=list[PostRead])
-async def get_list_archived_posts_route(
-    db: AsyncSession = Depends(get_async_db)
-):
-    posts = await get_list_archived_posts(db)
-    return posts
-
-
-@router.get("/{post_id}", response_model=PostRead)
-async def get_post_by_id_route(
-    post_id: int,
-    db: AsyncSession = Depends(get_async_db)
-):
-    post = await get_post_by_id(db, post_id)
-
-    if post is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Post not found",
-        )
-
-    return post
-
-
-@router.patch("/{post_id}", response_model=PostRead, status_code=status.HTTP_200_OK)
-async def update_post_route(
-    post_data: PostUpdate,
-    post_id: int,
-    current_user_id: int = Depends(get_current_user_id),
-    db: AsyncSession = Depends(get_async_db)
-):
-    try:
-        post = await update_post(
-            db,
-            post_data,
-            post_id,
-            author_id=current_user_id,
-        )
-    except ValueError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=str(exc),
-    )
-
-    if post is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Post not found",
-        )
-
-    return post
-
-
-@router.delete("/{post_id}", response_model=PostRead, status_code=status.HTTP_200_OK)
-async def delete_post_route(
-    post_id: int,
-    # Для удаления нужен и user_id, и role: admin может удалить любой пост.
-    current_user: tuple[int, str] = Depends(get_current_user_context),
-    db: AsyncSession = Depends(get_async_db),
-):
-    current_user_id, role = current_user
-    
-    # None означает "не фильтровать по author_id" для admin.
-    author_id = None if role == "admin" else current_user_id
-    
-    
-    post = await delete_post(
-        db,
-        post_id,
-        author_id=author_id,
-    )
-
-    
-    if post is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Post not found",
-        )
-
-    return post
