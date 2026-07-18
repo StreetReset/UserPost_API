@@ -31,3 +31,16 @@ class PostService:
             offset,
         )
         return [PostPublicRead.model_validate(post) for post in posts]
+
+    async def get_published_by_author_id(
+        self,
+        author_id: int,
+        limit: int,
+        offset: int,
+    ) -> list[PostPublicRead]:
+        posts = await self.post_repository.get_published_by_author_id(
+            author_id,
+            limit,
+            offset,
+        )
+        return [PostPublicRead.model_validate(post) for post in posts]

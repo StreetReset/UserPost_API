@@ -4,7 +4,7 @@ from ..auth.hashing import hash_password
 from ..events.kafka import send_event
 from ..models.user_models import User
 from ..repositories.user_repository import UserRepository
-from ..schemas.user import UserCreate, UserRead, UserUpdate
+from ..schemas.user import UserCreate, UserPublicRead, UserRead, UserUpdate
 
 
 class UserService:
@@ -28,6 +28,10 @@ class UserService:
             "role": user.role.value,
             "is_active": user.is_active,
         }
+
+    async def get_public_by_ids(self, user_ids: list[int]) -> list[UserPublicRead]:
+        users = await self.user_repository.get_public_by_ids(user_ids)
+        return [UserPublicRead.model_validate(user) for user in users]
 
     async def _send_user_event(self, event_type: str, user: User) -> None:
         await send_event(

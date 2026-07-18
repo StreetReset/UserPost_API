@@ -37,6 +37,15 @@ class UserRepository:
             select(User).where(User.id == user_id)
         )
 
+    async def get_public_by_ids(self, user_ids: list[int]) -> list[User]:
+        users = await self.session.scalars(
+            select(User).where(
+                User.id.in_(user_ids),
+                User.is_active.is_(True),
+            )
+        )
+        return list(users.all())
+
     async def get_active_by_id(self, user_id: int) -> User | None:
         return await self.session.scalar(
             select(User).where(

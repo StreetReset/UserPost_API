@@ -1,10 +1,15 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Path, status
+from fastapi import APIRouter, HTTPException, Path, Query, status
 
 from ..auth.dependencies import CurrentUserDep
 from ..dependencies.user_dependencies import UserServiceDep
-from ..schemas.user import UserCreate, UserRead, UserUpdate
+from ..schemas.user import (
+    UserCreate,
+    UserPublicRead,
+    UserRead,
+    UserUpdate,
+)
 
 
 router = APIRouter(
@@ -23,6 +28,22 @@ async def create_user(
     user_service: UserServiceDep,
 ):
     return await user_service.create(user_data)
+
+
+@router.get("/public", response_model=list[UserPublicRead])
+async def get_public_users(
+    ids: Annotated[list[int], Query()],
+    user_service: UserServiceDep,
+):
+    unique_ids = list(dict.fromkeys(ids))
+
+    if len(unique_ids) > 100:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="No more than 100 user IDs are allowed",
+        )
+
+    return await user_service.get_public_by_ids(unique_ids)
 
 
 @router.get("/{user_id}", response_model=UserRead)

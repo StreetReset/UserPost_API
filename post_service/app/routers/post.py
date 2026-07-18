@@ -19,6 +19,20 @@ async def get_list_published_posts(
     return await post_service.get_list_published_posts(limit, offset)
 
 
+@router.get("/author/{author_id}", response_model=list[PostPublicRead])
+async def get_published_posts_by_author(
+    author_id: Annotated[int, Path(gt=0)],
+    post_service: PostServiceDep,
+    limit: Annotated[int, Query(ge=1, le=100)] = 20,
+    offset: Annotated[int, Query(ge=0)] = 0,
+):
+    return await post_service.get_published_by_author_id(
+        author_id,
+        limit,
+        offset,
+    )
+
+
 @router.get("/{post_id}", response_model=PostPublicRead)
 async def get_by_id(
     post_id: Annotated[int, Path(gt=0)],

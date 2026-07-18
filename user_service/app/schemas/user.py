@@ -54,15 +54,18 @@ class UserUpdate(BaseModel):
         return value.strip().title()
 
 
-class UserRead(BaseModel):
+class UserPublicRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
     username: str
-    email: EmailStr
-    birth_date: date
     first_name: str
     last_name: str
+
+
+class UserRead(UserPublicRead):
+    email: EmailStr
+    birth_date: date
     role: str
     is_active: bool
     created_at: datetime

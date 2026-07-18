@@ -95,9 +95,27 @@ class PostRepository:
         .order_by(desc(Post.created_at))
         .limit(limit)
         .offset(offset)
-    )
+        )
         return list(result.all())
 
+    async def get_published_by_author_id(
+        self,
+        author_id: int,
+        limit: int,
+        offset: int,
+    ) -> list[Post]:
+        result = await self.session.scalars(
+            select(Post)
+            .where(
+                Post.author_id == author_id,
+                Post.is_active.is_(True),
+                Post.status == PostStatus.PUBLISHED,
+            )
+            .order_by(desc(Post.created_at))
+            .limit(limit)
+            .offset(offset)
+        )
+        return list(result.all())
 
     async def get_list_archived_posts(
         self,
