@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 
 import { apiFetch } from "@/lib/client-api";
 import type { User } from "@/lib/types";
-import { HomeIcon, LoginIcon, LogoutIcon, PenIcon, SearchIcon, SparkIcon, UserIcon } from "./icons";
+import { HomeIcon, LoginIcon, LogoutIcon, PenIcon, UserIcon } from "./icons";
 
 const nav = [
   { href: "/", label: "Главная", icon: HomeIcon },
@@ -35,8 +35,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="mx-auto min-h-screen max-w-[1265px] md:grid md:grid-cols-[88px_minmax(0,600px)] xl:grid-cols-[275px_minmax(0,600px)_350px]">
-      <aside className="fixed bottom-0 z-50 w-full border-t border-[#2f3336] bg-black md:sticky md:top-0 md:h-screen md:w-auto md:border-r md:border-t-0">
+    <div className="mx-auto min-h-screen w-full max-w-[995px] md:grid md:grid-cols-[88px_minmax(0,1fr)] xl:grid-cols-[275px_minmax(0,720px)]">
+      <aside className="fixed bottom-0 z-50 w-full border-t border-[#2f3336] bg-black pb-[env(safe-area-inset-bottom)] md:sticky md:top-0 md:h-screen md:w-auto md:border-r md:border-t-0 md:pb-0">
         <div className="flex h-full items-center justify-around px-2 md:flex-col md:items-stretch md:justify-start md:px-3 xl:px-4">
           <Link href="/" className="hidden h-14 w-14 items-center justify-center md:flex" aria-label="Pulse">
             <span className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-xl font-black text-black">P</span>
@@ -85,33 +85,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </div>
       </aside>
 
-      <main className="min-h-screen border-[#2f3336] pb-20 md:border-r md:pb-0">{children}</main>
-
-      <aside className="sticky top-0 hidden h-screen px-7 py-3 xl:block">
-        <div className="relative">
-          <SearchIcon className="absolute top-3 left-4 h-5 w-5 text-[#71767b]" />
-          <input className="h-11 w-full rounded-full bg-[#202327] pr-4 pl-12 text-sm outline-none ring-[#1d9bf0] placeholder:text-[#71767b] focus:bg-black focus:ring-1" placeholder="Поиск" />
+      <main className="min-w-0 min-h-screen border-[#2f3336] pb-20 md:border-r md:pb-0">
+        <div key={pathname} className="page-enter">
+          {children}
         </div>
-        <section className="mt-4 overflow-hidden rounded-2xl border border-[#2f3336] bg-black">
-          <h2 className="px-4 pt-3 pb-2 text-xl font-extrabold">Актуальное для вас</h2>
-          {[
-            ["Разработка", "#FastAPI", "1 248 публикаций"],
-            ["В тренде", "Next.js 16", "864 публикации"],
-            ["Технологии", "Микросервисы", "532 публикации"],
-          ].map(([eyebrow, title, meta]) => (
-            <div key={title} className="cursor-default px-4 py-3 transition hover:bg-[#080808]">
-              <p className="text-xs text-[#71767b]">{eyebrow}</p>
-              <p className="mt-0.5 text-sm font-bold">{title}</p>
-              <p className="mt-0.5 text-xs text-[#71767b]">{meta}</p>
-            </div>
-          ))}
-        </section>
-        <section className="mt-4 rounded-2xl border border-[#2f3336] p-4">
-          <div className="flex items-center gap-2 text-[#1d9bf0]"><SparkIcon className="h-5 w-5" /><span className="text-sm font-bold">Pulse</span></div>
-          <p className="mt-2 text-sm leading-5 text-[#71767b]">Место для коротких мыслей, больших идей и живых проектов.</p>
-        </section>
-        <p className="mt-4 px-3 text-xs leading-5 text-[#536471]">Условия · Конфиденциальность · О проекте · © 2026 Pulse</p>
-      </aside>
+      </main>
     </div>
   );
 }

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
 
+import { AuthBrand } from "@/components/auth-brand";
 import { apiFetch } from "@/lib/client-api";
 
 export default function LoginPage() {
@@ -24,9 +25,8 @@ export default function LoginPage() {
 
   return (
     <div className="grid min-h-screen lg:grid-cols-2">
-      <div className="hidden items-center justify-center bg-[#f2f2f2] text-black lg:flex"><span className="text-[240px] font-black tracking-tighter">P</span></div>
+      <AuthBrand />
       <div className="flex items-center justify-center px-6 py-12"><div className="w-full max-w-md animate-in">
-        <Link href="/" className="mb-12 inline-flex h-11 w-11 items-center justify-center rounded-full bg-white text-xl font-black text-black lg:hidden">P</Link>
         <p className="text-sm font-bold text-[#1d9bf0]">С возвращением</p><h1 className="mt-2 text-4xl font-extrabold tracking-tight">Войти в Pulse</h1><p className="mt-3 text-[#71767b]">Продолжите публиковать и читать.</p>
         <form onSubmit={submit} className="mt-10 space-y-5">
           <Field name="username" label="Username или email" autoComplete="username" required />
