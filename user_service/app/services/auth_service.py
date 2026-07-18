@@ -18,9 +18,10 @@ class AuthService:
         )
 
     async def login(self, username: str, password: str) -> dict:
+        identifier = username.strip().lower()
         user = await self.user_repository.get_by_username_or_email(
-            username=username,
-            email=username,
+            username=identifier,
+            email=identifier,
         )
 
         if user is None or not verify_password(password, user.hashed_password):
