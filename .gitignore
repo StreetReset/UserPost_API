@@ -25,10 +25,21 @@ ENV/
 .ruff_cache/
 .mypy_cache/
 .pyre/
+.pytype/
+.pyright/
+.hypothesis/
+.tox/
+.nox/
+.ipynb_checkpoints/
 .coverage
 .coverage.*
 htmlcov/
 coverage.xml
+junit.xml
+
+# Python packaging and documentation output
+pip-wheel-metadata/
+site/
 
 # Local databases and runtime files
 *.db
@@ -36,13 +47,18 @@ coverage.xml
 *.sqlite3
 *.log
 logs/
+*.pid
+*.pid.lock
 
 # IDE and OS files
 .idea/
 .vscode/
 .agents/
 .DS_Store
+.AppleDouble
+.LSOverride
 Thumbs.db
+Desktop.ini
 
 # uv local cache
 .uv-cache/
